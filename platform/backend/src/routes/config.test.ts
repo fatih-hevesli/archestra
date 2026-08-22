@@ -110,6 +110,7 @@ describe("config routes", () => {
       virtualKeyDefaultExpirationSeconds: expect.any(Number),
       chatSecretScanEnabled: true,
       kbAutoSyncPermissionsEnabled: expect.any(Boolean),
+      knowledgeEvaluationBetaEnabled: expect.any(Boolean),
       // SPDX-SnippetBegin
       // SPDX-SnippetCopyrightText: 2026 Archestra Inc.
       // SPDX-License-Identifier: LicenseRef-Archestra-Enterprise

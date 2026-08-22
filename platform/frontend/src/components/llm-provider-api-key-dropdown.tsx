@@ -58,6 +58,7 @@ interface LlmProviderApiKeyDropdownProps {
   searchPlaceholder?: string;
   emptyTriggerLabel?: string;
   triggerTestId?: string;
+  triggerAriaLabel?: string;
   showChatTestIds?: boolean;
   allOptionLabel?: string;
   allOptionSelected?: boolean;
@@ -82,6 +83,7 @@ export function LlmProviderApiKeyDropdown({
   searchPlaceholder = "Search API Keys...",
   emptyTriggerLabel,
   triggerTestId,
+  triggerAriaLabel,
   showChatTestIds = false,
   allOptionLabel,
   allOptionSelected = false,
@@ -131,6 +133,7 @@ export function LlmProviderApiKeyDropdown({
               triggerClassName,
             )}
             data-testid={triggerTestId}
+            aria-label={triggerAriaLabel}
           >
             <span className="flex min-w-0 items-center gap-1.5">
               {selectedKey ? (

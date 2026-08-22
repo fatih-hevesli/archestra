@@ -13,6 +13,7 @@ import { handleContentRetentionCleanup } from "./content-retention-cleanup-handl
 import { handleKbBm25StatsRefresh } from "./kb-bm25-stats-refresh-handler";
 import { handleP4ShimReconcile } from "./p4-shim-reconcile-handler";
 import { handlePermissionSync } from "./permission-sync-handler";
+import { handleRetrievalEvaluation } from "./retrieval-evaluation-handler";
 import { handleScheduleTriggerRunExecution } from "./schedule-trigger-run-handler";
 import { handleSkillGithubSync } from "./skill-github-sync-handler";
 import { handleSkillPublicationBackfill } from "./skill-publication-backfill-handler";
@@ -21,6 +22,10 @@ export function registerTaskHandlers(taskQueueService: TaskQueueService): void {
   taskQueueService.registerHandler("connector_sync", handleConnectorSync);
   taskQueueService.registerHandler("batch_embedding", handleBatchEmbedding);
   taskQueueService.registerHandler("permission_sync", handlePermissionSync);
+  taskQueueService.registerHandler(
+    "retrieval_evaluation",
+    handleRetrievalEvaluation,
+  );
   taskQueueService.registerHandler(
     "check_due_connectors",
     handleCheckDueConnectors,

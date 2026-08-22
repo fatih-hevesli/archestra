@@ -555,6 +555,12 @@ export const RouteId = {
   TestRerankerConnection: "testRerankerConnection",
   TestOcrConnection: "testOcrConnection",
   GetKeywordRankingStatus: "getKeywordRankingStatus",
+  GetRetrievalEvaluationCapabilities: "getRetrievalEvaluationCapabilities",
+  ListRetrievalEvaluationRuns: "listRetrievalEvaluationRuns",
+  GetRetrievalEvaluationRun: "getRetrievalEvaluationRun",
+  StartRetrievalEvaluation: "startRetrievalEvaluation",
+  CancelRetrievalEvaluation: "cancelRetrievalEvaluation",
+  CompareRetrievalEvaluations: "compareRetrievalEvaluations",
 
   // Identity Provider Routes
   GetPublicIdentityProviders: "getPublicIdentityProviders",

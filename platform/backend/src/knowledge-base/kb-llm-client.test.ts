@@ -466,7 +466,7 @@ describe("resolveRerankerConfig", () => {
 
     await OrganizationModel.patch(org.id, {
       rerankerChatApiKeyId: chatApiKey.id,
-      rerankerModel: "rerank-v3",
+      rerankerModel: "gpt-4o",
     });
 
     mockGetSecretValue.mockResolvedValueOnce("sk-reranker-key");
@@ -474,11 +474,11 @@ describe("resolveRerankerConfig", () => {
     const result = await resolveRerankerConfig(org.id);
 
     expect(result).not.toBeNull();
-    expect(result?.modelName).toBe("rerank-v3");
+    expect(result?.modelName).toBe("gpt-4o");
     expect(mockCreateDirectLLMModel).toHaveBeenCalledWith(
       expect.objectContaining({
         apiKey: "sk-reranker-key",
-        modelName: "rerank-v3",
+        modelName: "gpt-4o",
       }),
     );
   });

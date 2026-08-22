@@ -57,6 +57,7 @@ import {
   SettingsSectionStack,
 } from "@/components/settings/settings-block";
 import { SmallTeamTierBanner } from "@/components/small-team-tier-banner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -72,7 +73,6 @@ import {
   DialogStickyFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useSession } from "@/lib/auth/auth.query";
 import { useFeature } from "@/lib/config/config.query";
@@ -96,11 +96,13 @@ import {
   useUpdateKnowledgeSettings,
 } from "@/lib/organization.query";
 import { cn } from "@/lib/utils";
+import { KnowledgeSettingsRow as CardRow } from "./knowledge-settings-row";
 import {
   type ConnectionStatus,
   type SectionStatus,
   saveResultStatuses,
 } from "./knowledge-validation";
+import { RetrievalEvaluationSection } from "./retrieval-evaluation-section";
 
 const DEFAULT_FORM_VALUES: LlmProviderApiKeyFormValues = {
   name: "",
@@ -138,31 +140,16 @@ function parseFactor(text: string): number | null {
 // eye without the constant blinking of `animate-pulse`.
 const SETUP_HIGHLIGHT_CLASS = "ring-2 ring-primary/50";
 
-function CardRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-      <Label className="shrink-0 text-sm text-muted-foreground sm:w-40">
-        {label}
-      </Label>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  );
-}
-
 function AddApiKeyDialog({
   open,
   onOpenChange,
   forEmbedding = false,
+  forOcr = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   forEmbedding?: boolean;
+  forOcr?: boolean;
 }) {
   const createMutation = useCreateLlmProviderApiKey();
   const byosEnabled = useFeature("byosEnabled");
@@ -244,7 +231,9 @@ function AddApiKeyDialog({
       description={
         forEmbedding
           ? "Add an API key for knowledge base embeddings."
-          : "Add an LLM provider API key for knowledge base reranking."
+          : forOcr
+            ? "Add an API key for document OCR."
+            : "Add an LLM provider API key for knowledge base reranking."
       }
       size="small"
     >
@@ -399,18 +388,17 @@ function RerankerModelSelector({
   selectedKeyId: string | null;
   pulse?: boolean;
 }) {
-  const { data: apiKeys } = useAvailableLlmProviderApiKeys();
-  const { data: allModels, isPending: modelsLoading } = useLlmModels();
-
-  const selectedProvider = useMemo(() => {
-    if (!selectedKeyId || !apiKeys) return null;
-    return apiKeys.find((k) => k.id === selectedKeyId)?.provider ?? null;
-  }, [selectedKeyId, apiKeys]);
-
-  const models = useMemo(() => {
-    if (!allModels || !selectedProvider) return [];
-    return allModels.filter((m) => m.provider === selectedProvider);
-  }, [allModels, selectedProvider]);
+  const { data: models = [], isPending: modelsLoading } = useLlmModels({
+    apiKeyId: selectedKeyId ?? undefined,
+    purpose: "knowledge-reranker",
+    enabled: Boolean(selectedKeyId),
+  });
+  useEffect(() => {
+    if (modelsLoading || !value || models.some((model) => model.id === value)) {
+      return;
+    }
+    onChange(null);
+  }, [models, modelsLoading, onChange, value]);
 
   if (!selectedKeyId) {
     return (
@@ -749,6 +737,9 @@ function KnowledgeSettingsContent() {
   const [rerankerModel, setRerankerModel] = useState<string | null>(null);
   const [ocrChatApiKeyId, setOcrChatApiKeyId] = useState<string | null>(null);
   const [ocrModel, setOcrModel] = useState<string | null>(null);
+  const [evaluationAddKeyPurpose, setEvaluationAddKeyPurpose] = useState<
+    "embedding" | "reranking" | "ocr" | null
+  >(null);
   // BM25 factors, as the text the inputs show. The deployment default is shown
   // as a value like any other; a value equal to it is saved as "inherit"
   // (null), so an organization that never strays from the default follows it
@@ -763,6 +754,8 @@ function KnowledgeSettingsContent() {
   const [bm25BText, setBm25BText] = useState<string | null>(null);
   const kbBm25DefaultK1 = useFeature("kbBm25DefaultK1");
   const kbBm25DefaultB = useFeature("kbBm25DefaultB");
+  const knowledgeEvaluationBetaEnabled =
+    useFeature("knowledgeEvaluationBetaEnabled") === true;
   const bm25DefaultK1 =
     typeof kbBm25DefaultK1 === "number" ? kbBm25DefaultK1 : BM25_K1_DEFAULT;
   const bm25DefaultB =
@@ -1636,6 +1629,43 @@ function KnowledgeSettingsContent() {
           )}
         </Card>
 
+        {knowledgeEvaluationBetaEnabled && (
+          <Card id="retrieval-evaluation-card">
+            <CardHeader>
+              <CardTitle>
+                <h2 className="flex items-center gap-2">
+                  Knowledge Configuration Evaluation
+                  <Badge
+                    variant="secondary"
+                    className="px-1.5 py-0 text-[10px]"
+                  >
+                    Beta
+                  </Badge>
+                </h2>
+              </CardTitle>
+              <CardDescription>
+                Retest changed Knowledge settings against fixed checks before
+                and after reconfiguration.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RetrievalEvaluationSection
+                hasUnsavedChanges={hasChanges}
+                bm25K1={bm25K1}
+                bm25B={bm25B}
+                embeddingChatApiKeyId={embeddingChatApiKeyId}
+                embeddingModel={embeddingModel}
+                rerankerChatApiKeyId={rerankerChatApiKeyId}
+                rerankerModel={rerankerModel}
+                ocrChatApiKeyId={ocrChatApiKeyId}
+                ocrModel={ocrModel}
+                onAddApiKey={setEvaluationAddKeyPurpose}
+                addApiKeyOpen={evaluationAddKeyPurpose !== null}
+              />
+            </CardContent>
+          </Card>
+        )}
+
         <SettingsSaveBar
           hasChanges={hasChanges}
           isSaving={updateKnowledgeSettings.isPending}
@@ -1661,6 +1691,12 @@ function KnowledgeSettingsContent() {
           placeholder="Select connector types…"
           emptyMessage="No connector types found."
           savedMessage="Available connectors updated"
+        />
+        <AddApiKeyDialog
+          open={evaluationAddKeyPurpose !== null}
+          onOpenChange={(open) => !open && setEvaluationAddKeyPurpose(null)}
+          forEmbedding={evaluationAddKeyPurpose === "embedding"}
+          forOcr={evaluationAddKeyPurpose === "ocr"}
         />
       </SettingsSectionStack>
     </LoadingWrapper>

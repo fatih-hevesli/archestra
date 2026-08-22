@@ -4,6 +4,7 @@ import type {
   SupportedProvider,
 } from "@archestra/shared";
 import {
+  getKnowledgeRerankerKind,
   isSubscriptionCredential,
   providerRequiresPerUserCredential,
 } from "@archestra/shared";
@@ -25,7 +26,6 @@ import {
   OcrConfigUnresolvableError,
   RerankerConfigUnresolvableError,
 } from "./errors";
-import { isNativeRerankModel } from "./native-rerank";
 import { providerSupportsPdfInput } from "./pdf-ocr";
 
 export interface EmbeddingConfig {
@@ -56,7 +56,7 @@ export interface EmbeddingConfig {
  * rerank-API model (Cohere Rerank, directly or Azure-hosted) called through
  * the provider's native rerank route.
  */
-type RerankerConfig = {
+export type RerankerConfig = {
   modelName: string;
   provider: SupportedProvider;
 } & (
@@ -83,12 +83,29 @@ export async function resolveEmbeddingConfig(
     return null;
   }
 
-  const resolved = await resolveApiKeyFromChatApiKey(org.embeddingChatApiKeyId);
+  return resolveEmbeddingConfigForSettings({
+    organizationId,
+    chatApiKeyId: org.embeddingChatApiKeyId,
+    modelName: org.embeddingModel,
+    fallbackDimensions: org.embeddingDimensions ?? 1536,
+  });
+}
+
+export async function resolveEmbeddingConfigForSettings(params: {
+  organizationId: string;
+  chatApiKeyId: string;
+  modelName: string;
+  fallbackDimensions?: number;
+}): Promise<EmbeddingConfig> {
+  const resolved = await resolveOwnedApiKey(params);
   if (!resolved) {
     // Configured but unresolvable (e.g. a credential that won't decrypt) is a
     // real, diagnosable fault — distinct from "not configured" (null above).
     logger.warn(
-      { organizationId, chatApiKeyId: org.embeddingChatApiKeyId },
+      {
+        organizationId: params.organizationId,
+        chatApiKeyId: params.chatApiKeyId,
+      },
       "[KB] Embedding API key configured but secret could not be resolved",
     );
     throw new EmbeddingConfigUnresolvableError();
@@ -96,29 +113,29 @@ export async function resolveEmbeddingConfig(
 
   const model = await ModelModel.findByProviderAndModelId(
     resolved.provider,
-    org.embeddingModel,
+    params.modelName,
   );
 
   return {
     apiKey: resolved.apiKey,
     baseUrl: resolved.baseUrl,
-    model: org.embeddingModel,
+    model: params.modelName,
     /**
      * TODO: Temporary transition. Prefer per-model dimensions. Fall back to the deprecated org-level
      * setting during the rollout, then to the historical 1536 default.
      */
-    dimensions: model?.embeddingDimensions ?? org.embeddingDimensions ?? 1536,
+    dimensions: model?.embeddingDimensions ?? params.fallbackDimensions ?? 1536,
     provider: resolved.provider,
     inputModalities: clampInputModalities({
       declared: model?.inputModalities ?? null,
       clientSupported: getEmbeddingClientInputModalities(
         resolved.provider,
-        org.embeddingModel,
+        params.modelName,
       ),
     }),
     acceptedImageMimeTypes: getEmbeddingClientAcceptedImageMimeTypes(
       resolved.provider,
-      org.embeddingModel,
+      params.modelName,
     ),
   };
 }
@@ -135,21 +152,54 @@ export async function resolveRerankerConfig(
     return null;
   }
 
-  const resolved = await resolveApiKeyFromChatApiKey(org.rerankerChatApiKeyId);
+  return resolveRerankerConfigForSettings({
+    organizationId,
+    chatApiKeyId: org.rerankerChatApiKeyId,
+    modelName: org.rerankerModel,
+  });
+}
+
+export async function resolveRerankerConfigForSettings(params: {
+  organizationId: string;
+  chatApiKeyId: string;
+  modelName: string;
+}): Promise<RerankerConfig> {
+  const resolved = await resolveOwnedApiKey(params);
   if (!resolved) {
     // Configured but unresolvable. Reranking is optional and degrades at query
     // time, so the caller catches this and continues unranked — but it is still a
     // typed, surfaced fault (and blocks save).
     logger.warn(
-      { organizationId, chatApiKeyId: org.rerankerChatApiKeyId },
+      {
+        organizationId: params.organizationId,
+        chatApiKeyId: params.chatApiKeyId,
+      },
       "[KB] Reranker API key configured but secret could not be resolved",
     );
     throw new RerankerConfigUnresolvableError();
   }
 
-  const modelName = org.rerankerModel;
+  const modelName = params.modelName;
+  const modelRecord = await ModelModel.findByProviderAndModelId(
+    resolved.provider,
+    modelName,
+  );
+  const rerankerKind = getKnowledgeRerankerKind({
+    provider: resolved.provider,
+    model: modelName,
+    embeddingDimensions: modelRecord?.embeddingDimensions,
+    outputModalities: modelRecord?.outputModalities,
+    supportedEndpoints: modelRecord?.supportedEndpoints,
+  });
+  if (!rerankerKind) {
+    logger.warn(
+      { provider: resolved.provider, model: modelName },
+      "[KB] Configured model has no executable Knowledge reranking transport",
+    );
+    throw new RerankerConfigUnresolvableError();
+  }
 
-  if (isNativeRerankModel({ provider: resolved.provider, model: modelName })) {
+  if (rerankerKind === "native-rerank") {
     return {
       kind: "native-rerank",
       apiKey: resolved.apiKey,
@@ -186,13 +236,28 @@ export async function resolveOcrConfig(
     return null;
   }
 
-  const resolved = await resolveApiKeyFromChatApiKey(org.ocrChatApiKeyId);
+  return resolveOcrConfigForSettings({
+    organizationId,
+    chatApiKeyId: org.ocrChatApiKeyId,
+    modelName: org.ocrModel,
+  });
+}
+
+export async function resolveOcrConfigForSettings(params: {
+  organizationId: string;
+  chatApiKeyId: string;
+  modelName: string;
+}): Promise<OcrConfig> {
+  const resolved = await resolveOwnedApiKey(params);
   if (!resolved) {
     // Configured but unresolvable (e.g. a credential that won't decrypt) is a
     // real, diagnosable fault — distinct from "not configured" (null above).
     // OCR is optional at ingest, so callers catch this and proceed without it.
     logger.warn(
-      { organizationId, chatApiKeyId: org.ocrChatApiKeyId },
+      {
+        organizationId: params.organizationId,
+        chatApiKeyId: params.chatApiKeyId,
+      },
       "[KB] OCR API key configured but secret could not be resolved",
     );
     throw new OcrConfigUnresolvableError();
@@ -203,7 +268,7 @@ export async function resolveOcrConfig(
   // for transport support.
   if (!providerSupportsPdfInput(resolved.provider)) {
     logger.warn(
-      { organizationId, provider: resolved.provider },
+      { organizationId: params.organizationId, provider: resolved.provider },
       "[KB] OCR key provider cannot carry PDF input",
     );
     throw new OcrConfigUnresolvableError(
@@ -212,12 +277,12 @@ export async function resolveOcrConfig(
   }
 
   return {
-    modelName: org.ocrModel,
+    modelName: params.modelName,
     provider: resolved.provider,
     llmModel: createDirectLLMModel({
       provider: resolved.provider,
       apiKey: resolved.apiKey ?? undefined,
-      modelName: org.ocrModel,
+      modelName: params.modelName,
       baseUrl: resolved.baseUrl,
     }),
   };
@@ -295,6 +360,15 @@ export async function resolveApiKeyFromChatApiKey(
 }
 
 // ===== Internal helpers =====
+
+async function resolveOwnedApiKey(params: {
+  organizationId: string;
+  chatApiKeyId: string;
+}): Promise<Awaited<ReturnType<typeof resolveApiKeyFromChatApiKey>>> {
+  const key = await LlmProviderApiKeyModel.findById(params.chatApiKeyId);
+  if (!key || key.organizationId !== params.organizationId) return null;
+  return resolveApiKeyFromChatApiKey(params.chatApiKeyId);
+}
 
 /**
  * Intersect the models table's (admin-editable) input modalities with what the

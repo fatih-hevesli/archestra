@@ -26,6 +26,7 @@ import OptimizationRuleModel from "@/models/optimization-rule";
 import OrganizationModel from "@/models/organization";
 import OrganizationRoleModel from "@/models/organization-role";
 import ProjectModel from "@/models/project";
+import RetrievalEvaluationRunModel from "@/models/retrieval-evaluation-run";
 import ScheduleTriggerModel from "@/models/schedule-trigger";
 import ServiceAccountModel from "@/models/service-account";
 import SkillModel from "@/models/skill";
@@ -626,6 +627,18 @@ export const AUDITABLE_ROUTES: Record<string, AuditableRouteConfig> = {
     resourceType: "organization",
     resourceIdSource: "organizationContext",
     fetchById: (id, _orgId) => OrganizationModel.findByIdForAudit(id, _orgId),
+  },
+  "/api/organization/knowledge-settings/retrieval-evaluations": {
+    resourceType: "retrievalEvaluation",
+    action: "retrievalEvaluation.started",
+    fetchById: (id, orgId) =>
+      RetrievalEvaluationRunModel.findByIdForAudit(id, orgId),
+  },
+  "/api/organization/knowledge-settings/retrieval-evaluations/:id/cancel": {
+    resourceType: "retrievalEvaluation",
+    action: "retrievalEvaluation.cancelled",
+    fetchById: (id, orgId) =>
+      RetrievalEvaluationRunModel.findByIdForAudit(id, orgId),
   },
   "/api/organization/members/:userId/pending-signup": {
     resourceType: "member",

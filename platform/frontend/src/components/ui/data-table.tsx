@@ -94,6 +94,8 @@ interface DataTableProps<TData, TValue> {
    * the contents overlap.
    */
   tableClassName?: string;
+  /** Accessible name for a keyboard-focusable horizontal scroll region. */
+  scrollRegionLabel?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -123,6 +125,7 @@ export function DataTable<TData, TValue>({
   hideHeader = false,
   compactPagination = false,
   tableClassName,
+  scrollRegionLabel,
 }: DataTableProps<TData, TValue>) {
   const [internalSorting, setInternalSorting] = useState<SortingState>([]);
   const [expanded, setExpanded] = useState<ExpandedState>({});
@@ -236,7 +239,12 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="w-full space-y-4">
-      <div className="overflow-x-auto rounded-md border">
+      <div
+        className="overflow-x-auto rounded-md border"
+        {...(scrollRegionLabel
+          ? { role: "region", "aria-label": scrollRegionLabel, tabIndex: 0 }
+          : {})}
+      >
         {/* The table never shrinks below the columns' summed configured sizes
             (tanstack defaults unsized columns to 150px) — on narrow screens
             the wrapper scrolls horizontally instead of crushing columns until

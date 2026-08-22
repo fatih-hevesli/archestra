@@ -5,7 +5,7 @@ import {
   getProviderChatInteractionType,
   withKbObservability,
 } from "./kb-interaction";
-import { resolveRerankerConfig } from "./kb-llm-client";
+import { type RerankerConfig, resolveRerankerConfig } from "./kb-llm-client";
 
 // ===== Exports =====
 
@@ -30,6 +30,7 @@ export async function buildDocumentContext(params: {
   content: string;
   organizationId: string;
   connectorId: string | null;
+  config?: RerankerConfig;
 }): Promise<string | null> {
   const { title, content, organizationId, connectorId } = params;
 
@@ -38,7 +39,8 @@ export async function buildDocumentContext(params: {
 
   let rerankerConfig: Awaited<ReturnType<typeof resolveRerankerConfig>>;
   try {
-    rerankerConfig = await resolveRerankerConfig(organizationId);
+    rerankerConfig =
+      params.config ?? (await resolveRerankerConfig(organizationId));
   } catch (error) {
     // Contextual retrieval reuses the reranking model and is a best-effort
     // enhancement: an unresolvable config must not fail an ingest. The fault is

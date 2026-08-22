@@ -5,6 +5,7 @@ import * as metrics from "@/observability/metrics";
 import type { AclEntry } from "@/types";
 import { chunkDocument } from "./chunker";
 import { buildDocumentContext } from "./contextual-retrieval";
+import type { RerankerConfig } from "./kb-llm-client";
 
 /**
  * Split a stored document into chunks and persist them.
@@ -30,6 +31,10 @@ export async function chunkAndStoreDocument(params: {
   ftsLanguage: TextSearchLanguage;
   acl: AclEntry[];
   log: pino.Logger;
+  /** Internal evaluator isolation: do not invoke the optional LLM stage. */
+  skipContextualRetrieval?: boolean;
+  /** Internal evaluator override; ordinary ingestion resolves organization settings. */
+  rerankerConfig?: RerankerConfig;
 }): Promise<void> {
   const {
     documentId,
@@ -76,12 +81,15 @@ export async function chunkAndStoreDocument(params: {
 
   // Best-effort and non-fatal: a document indexes without context rather than
   // failing the sync. Generated once here and copied onto every chunk.
-  const contextualHeader = await buildDocumentContext({
-    title,
-    content,
-    organizationId,
-    connectorId,
-  });
+  const contextualHeader = params.skipContextualRetrieval
+    ? null
+    : await buildDocumentContext({
+        title,
+        content,
+        organizationId,
+        connectorId,
+        config: params.rerankerConfig,
+      });
 
   await KbChunkModel.insertMany(
     chunks.map((chunk) => ({
