@@ -74,6 +74,7 @@ export * from "./oauth-client";
 export * from "./optimization-rule";
 export * from "./organization";
 export * from "./project";
+export * from "./retrieval-evaluation";
 export * from "./role";
 export * from "./schedule-trigger";
 export * from "./secret";
