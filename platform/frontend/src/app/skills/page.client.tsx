@@ -35,7 +35,7 @@ import {
   filterControlClass,
   filterSearchClass,
 } from "@/components/filter-bar";
-import { LoadingSpinner, LoadingWrapper } from "@/components/loading";
+import { LoadingState, LoadingWrapper } from "@/components/loading";
 import { PageLayout } from "@/components/page-layout";
 import {
   PERMANENT_DELETE_LABEL,
@@ -704,7 +704,7 @@ function SkillsList() {
   return (
     <LoadingWrapper
       isPending={isPending && !skills}
-      loadingFallback={<LoadingSpinner />}
+      loadingFallback={<LoadingState label="Loading skills…" variant="page" />}
     >
       <PageLayout
         title="Skills"
