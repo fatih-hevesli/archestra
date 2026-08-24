@@ -1156,7 +1156,7 @@ function KnowledgeSettingsContent() {
   return (
     <LoadingWrapper
       isPending={isInitialLoading}
-      loadingFallback={<LoadingState />}
+      loadingFallback={<LoadingState variant="page" />}
     >
       <SettingsSectionStack>
         <SettingsBlock
